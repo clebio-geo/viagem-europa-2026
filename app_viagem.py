@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 VIAGEM EUROPA 2026 — APP STREAMLIT AVANÇADO
-Versão com Dias até Viagem + Seção Clima e Tempo
+Atualizado com Dias até Viagem + Seção Clima
 """
 
 import streamlit as st
@@ -13,7 +13,7 @@ import os
 import json
 import requests
 
-# ============== CONFIGURAÇÃO ==============
+# ===CONFIGURAÇÃO===========
 st.set_page_config(
     page_title="Viagem Europa 2026 💶",
     page_icon="✈️",
@@ -26,380 +26,203 @@ ARQUIVO_CATEGORIAS = "categorias.json"
 ARQUIVO_HOSPEDAGEM = "hospedagem.json"
 ARQUIVO_TRANSPORTES = "transportes.json"
 
-# ============== DATAS DA VIAGEM ==============
-DATA_INICIO_VIAGEM = datetime(2026, 10, 30)
-DATA_HOJE = datetime.now()
+DATA_INICIO = datetime(2026, 10, 30)
+HOJE = datetime.now()
 
-# ============== ORÇAMENTO ==============
-ORCAMENTO_PADRAO = {
-    "limite_total": 30000.00,
-    "itens_ja_pagos": {
-        "Passagem Fortaleza > Madrid": 0.00,
-        "Passagem Madrid > Fortaleza": 0.00,
-        "Seguro Viagem (casal)": 350.00,
-    },
-    "categorias": {
-        "Transportes Internos": 4475.00,
-        "Hospedagem": 6915.00,
-        "Alimentação": 6275.00,
-        "Passeios e Atrações": 2464.00,
-        "Futebol": 697.00,
-        "Translado": 500.00,
-    },
+COORDENADAS = {
+    "Fortaleza": (-3.7319, -38.5267),
+    "Madrid": (40.4168, -3.7038),
+    "Barcelona": (41.3851, 2.1734),
+    "Bruxelas": (50.8503, 4.3517),
+    "Paris": (48.8566, 2.3522),
+    "Marne-la-Vallée": (48.8704, 2.7788),
+    "Milão": (45.4642, 9.1900),
+    "Tirano": (41.5004, 8.5625),
+    "Suíça (Poschiavo, St. Moritz)": (46.4085, 10.2205),
+    "Veneza": (45.4408, 12.3155),
+    "Florença": (43.7695, 11.2558),
+    "Pisa": (43.7228, 10.3964),
+    "Roma": (41.9028, 12.4964),
+    "Vaticano": (41.9029, 12.4534),
 }
 
-# ============== ROTEIRO DETALHADO ==============
-ROTEIRO_VIAGEM = [
-    {"data": "30/out", "saida": "Fortaleza", "chegada": "Madrid", "tipo": "Transporte"},
-    {"data": "31/out", "saida": "Madrid", "chegada": "Madrid", "tipo": "Hospedagem"},
-    {"data": "01/nov", "saida": "Madrid", "chegada": "Barcelona", "tipo": "Transporte"},
-    {"data": "02/nov", "saida": "Barcelona", "chegada": "Barcelona", "tipo": "Hospedagem"},
-    {"data": "03/nov", "saida": "Barcelona", "chegada": "Bruxelas", "tipo": "Transporte"},
-    {"data": "04/nov", "saida": "Bruxelas", "chegada": "Paris", "tipo": "Transporte"},
-    {"data": "05/nov", "saida": "Marne-la-Vallée (Disney)", "chegada": "Marne-la-Vallée", "tipo": "Hospedagem"},
-    {"data": "06/nov", "saida": "Paris", "chegada": "Paris", "tipo": "Hospedagem"},
-    {"data": "07/nov", "saida": "Paris", "chegada": "Milão", "tipo": "Transporte"},
-    {"data": "08/nov", "saida": "Milão", "chegada": "Milão", "tipo": "Hospedagem"},
-    {"data": "09/nov", "saida": "Milão (Tirano)", "chegada": "Suíça (Poschiavo, St. Moritz)", "tipo": "Transporte"},
-    {"data": "10/nov", "saida": "Milão", "chegada": "Veneza", "tipo": "Transporte"},
-    {"data": "11/nov", "saida": "Milão", "chegada": "Florença", "tipo": "Transporte"},
-    {"data": "12/nov", "saida": "Florença", "chegada": "Pisa", "tipo": "Transporte"},
-    {"data": "13/nov", "saida": "Florença", "chegada": "Roma", "tipo": "Transporte"},
-    {"data": "14/nov", "saida": "Roma", "chegada": "Vaticano", "tipo": "Hospedagem"},
-    {"data": "15/nov", "saida": "Roma", "chegada": "Roma", "tipo": "Hospedagem"},
-    {"data": "16/nov", "saida": "Roma", "chegada": "Madrid", "tipo": "Transporte"},
-    {"data": "17/nov", "saida": "Madrid", "chegada": "Fortaleza", "tipo": "Transporte"},
-]
+ORCAMENTO_PATH = 30000.00
+ORCAMENTO_CATEGORIAS = {
+    "Transportes Internos": 4475.00,
+    "Hospedagem": 6915.00,
+    "Alimentação": 6275.00,
+    "Passeios e Atrações": 2464.00,
+    "Futebol": 697.00,
+    "Translado": 500.00,
+}
 
-CIDADES_ROTEIRO = [
-    "Fortaleza", "Madrid", "Barcelona", "Bruxelas", "Paris", 
-    "Marne-la-Vallée", "Milão", "Tirano", "Suíça (Poschiavo, St. Moritz)", 
+CIDADES = [
+    "Fortaleza", "Madrid", "Barcelona", "Bruxelas", "Paris",
+    "Marne-la-Vallée", "Milão", "Tirano", "Suíça (Poschiavo, St. Moritz)",
     "Veneza", "Florença", "Pisa", "Roma", "Vaticano"
 ]
 
-# ============== COORDENADAS DAS CIDADES PARA CLIMA ==============
-COORDENADAS_CIDADES = {
-    "Fortaleza": {"lat": -3.7319, "lon": -38.5267},
-    "Madrid": {"lat": 40.4168, "lon": -3.7038},
-    "Barcelona": {"lat": 41.3851, "lon": 2.1734},
-    "Bruxelas": {"lat": 50.8503, "lon": 4.3517},
-    "Paris": {"lat": 48.8566, "lon": 2.3522},
-    "Marne-la-Vallée": {"lat": 48.8704, "lon": 2.7788},
-    "Milão": {"lat": 45.4642, "lon": 9.1900},
-    "Tirano": {"lat": 41.5004, "lon": 8.5625},
-    "Suíça (Poschiavo, St. Moritz)": {"lat": 46.4085, "lon": 10.2205},
-    "Veneza": {"lat": 45.4408, "lon": 12.3155},
-    "Florença": {"lat": 43.7695, "lon": 11.2558},
-    "Pisa": {"lat": 43.7228, "lon": 10.3964},
-    "Roma": {"lat": 41.9028, "lon": 12.4964},
-    "Vaticano": {"lat": 41.9029, "lon": 12.4534},
-}
+TRANSPORTE_TIPO = ["Avião", "Trem", "Metro", "Ônibus", "Bicicleta"]
 
-TIPO_TRANSPORTE = ["Avião", "Trem", "Metro", "Ônibus", "Bicicleta"]
-
-CATEGORIAS_GASTO = [
-    "Alimentação",
-    "Souvenirs",
-    "Transporte",
-    "Roupas e Acessórios",
-    "Passeios/Ingressos",
-    "Taxas",
-    "Hospedagem",
-    "Outros"
+GASTO_CATEGORIA = [
+    "Alimentação", "Souvenirs", "Transporte", "Roupas e Acessórios",
+    "Passeios/Ingressos", "Taxas", "Hospedagem", "Outros"
 ]
 
-ITENS_OBRIGATORIOS = [
-    "📋 Passaporte",
-    "💳 Cartão de Crédito/Débito",
-    "💰 Dóleira com valores",
-    "🔋 Carregador Portátil (Power Bank)",
-    "📱 Carregador de Celular",
-    "🛂 Comprovante de Reservas (Hotel/Transporte)",
-    "📄 Apólice de Seguro Viagem",
-    "🏦 Extrato Bancário",
-    "💉 Comprimidos/Medicamentos",
-    "🎫 Ingressos (se já comprados)",
-    "🗺️ Mapa ou App de Navegação",
-    "📧 E-mails de Confirmação",
-    "🧳 Mala/Bagagem",
-    "👕 Roupas Adequadas",
-    "👟 Sapatos Confortáveis",
-    "📷 Câmera/Celular com Bateria",
-    "🎧 Fone de Ouvido",
-    "💼 Adaptador de Energia (tomadas europeia)",
-    "🧴 Artigos de Higiene",
-    "☂️ Guarda-chuva",
-]
+# ===FUNCOES CLMA===========
+def dias_para_viagem():
+    return (DATA_INICIO - HOJE).days
 
-# ============== FUNÇÕES DE CLIMA ==============
-
-def obter_clima_cidade(cidade):
-    """Busca o clima atual da cidade via OpenWeatherMap API"""
+def buscar_clima(cidade):
     try:
-        if cidade not in COORDENADAS_CIDADES:
+        if cidade not in COORDENADAS:
             return None
-        
-        coords = COORDENADAS_CIDADES[cidade]
-        
-        # Usando API Open-Meteo (gratuita, sem chave necessária)
-        url = f"https://api.open-meteo.com/v1/forecast"
+        lat, lon = COORDENADAS[cidade]
+        url = "https://api.open-meteo.com/v1/forecast"
         params = {
-            "latitude": coords["lat"],
-            "longitude": coords["lon"],
-            "current": "temperature_2m,weather_code,relative_humidity_2m,wind_speed_10m",
-            "temperature_unit": "celsius",
+            "latitude": lat, "longitude": lon,
+            "current": "temperature_2m,weather_code,wind_speed_10m",
             "timezone": "auto"
         }
-        
-        response = requests.get(url, params=params, timeout=5)
-        if response.status_code == 200:
-            data = response.json()
-            return data.get("current", None)
-        return None
+        r = requests.get(url, params=params, timeout=5)
+        if r.status_code == 200:
+            return r.json().get("current")
     except:
-        return None
+        pass
+    return None
 
-def interpretar_codigo_clima(code):
-    """Interpreta código de clima em descrição e emoji"""
-    codigos = {
+def interpretar_clima(code):
+    mapa = {
         0: ("☀️ Céu limpo", "Céu completamente limpo"),
-        1: ("🌤️ Parcialmente nublado", "Maiormente céu limpo"),
+        1: ("🌤️ Parcialmente nublado", "Maiormente limpo"),
         2: ("⛅ Nublado", "Parcialmente nublado"),
         3: ("☁️ Nublado", "Céu nublado"),
-        45: ("🌫️ Névoa", "Névoa ou nuvem baixa"),
-        48: ("🌫️ Névoa congelada", "Névoa congelada ou nuvem baixa"),
-        51: ("🌧️ Garoa leve", "Garoa leve"),
-        53: ("🌧️ Garoa moderada", "Garoa moderada"),
-        55: ("🌧️ Garoa densa", "Garoa densa"),
         61: ("🌧️ Chuva leve", "Chuva leve"),
-        63: ("🌧️ Chuva moderada", "Chuva moderada"),
         65: ("⛈️ Chuva forte", "Chuva forte"),
-        71: ("❄️ Neve leve", "Neve leve"),
-        73: ("❄️ Neve moderada", "Neve moderada"),
-        75: ("❄️ Neve forte", "Neve forte"),
-        77: ("❄️ Neve em grãos", "Neve em grãos"),
-        80: ("🌧️ Pancadas leves", "Pancadas de chuva leve"),
-        81: ("⛈️ Pancadas moderadas", "Pancadas de chuva moderada"),
-        82: ("⛈️ Pancadas fortes", "Pancadas de chuva forte"),
-        85: ("❄️ Pancadas de neve leve", "Pancadas de neve leve"),
-        86: ("❄️ Pancadas de neve forte", "Pancadas de neve forte"),
-        95: ("⛈️ Tempestade", "Tempestade com chuva"),
-        96: ("⛈️ Tempestade com granizo", "Tempestade com granizo leve"),
-        99: ("⛈️ Tempestade forte", "Tempestade com granizo forte"),
+        80: ("🌧️ Pancadas", "Pancadas de chuva"),
+        95: ("⛈️ Tempestade", "Tempestade"),
     }
-    return codigos.get(code, ("❓ Desconhecido", "Condição desconhecida"))
+    return mapa.get(code, ("❓ Desconhecido", "Sem previsão"))
 
-def calcular_dias_para_viagem():
-    """Calcula quantos dias faltam para a viagem"""
-    dias_faltantes = (DATA_INICIO_VIAGEM - DATA_HOJE).days
-    return dias_faltantes
-
-# ============== FUNÇÕES DE CATEGORIAS ==============
-
-def carregar_categorias():
-    if os.path.exists(ARQUIVO_CATEGORIAS):
-        with open(ARQUIVO_CATEGORIAS, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    else:
-        salvar_categorias(ORCAMENTO_PADRAO["categorias"])
-        return ORCAMENTO_PADRAO["categorias"]
-
-def salvar_categorias(categorias):
-    with open(ARQUIVO_CATEGORIAS, 'w', encoding='utf-8') as f:
-        json.dump(categorias, f, ensure_ascii=False, indent=2)
-
-def adicionar_categoria(nome_categoria, orcamento_categoria=0.0):
-    categorias = carregar_categorias()
-    if nome_categoria not in categorias:
-        categorias[nome_categoria] = float(orcamento_categoria)
-        salvar_categorias(categorias)
-        return True
-    return False
-
-def obter_orcamento():
-    orcamento = ORCAMENTO_PADRAO.copy()
-    orcamento["categorias"] = carregar_categorias()
-    return orcamento
-
-# ============== FUNÇÕES DE DESPESAS ==============
-
+# ===FUNCOES DE CARREGAMENTO===========
 def carregar_despesas():
     if os.path.exists(ARQUIVO_DESPESAS):
         df = pd.read_csv(ARQUIVO_DESPESAS)
         df["data"] = pd.to_datetime(df["data"])
         return df
-    return pd.DataFrame(columns=["data", "categoria", "descricao", "cidade", "valor"])
+    return pd.DataFrame(columns=["data","categoria","descricao","cidade","valor"])
 
 def salvar_despesa(data, categoria, descricao, cidade, valor):
     df = carregar_despesas()
-    nova_linha = pd.DataFrame([{
-        "data": data,
-        "categoria": categoria,
-        "descricao": descricao,
-        "cidade": cidade,
-        "valor": valor
-    }])
-    df = pd.concat([df, nova_linha], ignore_index=True)
-    df.to_csv(ARQUIVO_DESPESAS, index=False, encoding='utf-8')
-    return True
+    nova = pd.DataFrame([{"data":data,"categoria":categoria,"descricao":descricao,"cidade":cidade,"valor":valor}])
+    pd.concat([df,nova], ignore_index=True).to_csv(ARQUIVO_DESPESAS, index=False, encoding="utf-8")
 
-def deletar_despesa(index):
+def deletar_despesa(idx):
     df = carregar_despesas()
-    df = df.drop(index).reset_index(drop=True)
-    df.to_csv(ARQUIVO_DESPESAS, index=False, encoding='utf-8')
-    return True
+    df.drop(idx).reset_index(drop=True).to_csv(ARQUIVO_DESPESAS, index=False, encoding="utf-8")
 
-def atualizar_despesa(index, data, categoria, descricao, cidade, valor):
-    df = carregar_despesas()
-    df.loc[index, "data"] = data
-    df.loc[index, "categoria"] = categoria
-    df.loc[index, "descricao"] = descricao
-    df.loc[index, "cidade"] = cidade
-    df.loc[index, "valor"] = valor
-    df.to_csv(ARQUIVO_DESPESAS, index=False, encoding='utf-8')
-    return True
-
-# ============== FUNÇÕES DE TRANSPORTES ==============
-
-def carregar_transportes():
-    if os.path.exists(ARQUIVO_TRANSPORTES):
-        with open(ARQUIVO_TRANSPORTES, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return []
-
-def salvar_transportes(transportes):
-    with open(ARQUIVO_TRANSPORTES, 'w', encoding='utf-8') as f:
-        json.dump(transportes, f, ensure_ascii=False, indent=2)
-
-def adicionar_transporte(transporte_dict):
-    transportes = carregar_transportes()
-    transportes.append(transporte_dict)
-    salvar_transportes(transportes)
-    return True
-
-def deletar_transporte(index):
-    transportes = carregar_transportes()
-    transportes.pop(index)
-    salvar_transportes(transportes)
-    return True
-
-def calcular_duracao(hora_saida, hora_chegada):
-    """Calcula a duração entre dois horários"""
-    try:
-        saida = datetime.strptime(hora_saida, "%H:%M")
-        chegada = datetime.strptime(hora_chegada, "%H:%M")
-        
-        if chegada < saida:
-            chegada = chegada + timedelta(days=1)
-        
-        duracao = chegada - saida
-        horas = duracao.seconds // 3600
-        minutos = (duracao.seconds % 3600) // 60
-        
-        return f"{horas}h {minutos}min"
-    except:
-        return "Inválido"
-
-# ============== FUNÇÕES DE HOSPEDAGEM ==============
-
-def carregar_hospedagem():
-    if os.path.exists(ARQUIVO_HOSPEDAGEM):
-        with open(ARQUIVO_HOSPEDAGEM, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    return {}
-
-def salvar_hospedagem(hospedagem):
-    with open(ARQUIVO_HOSPEDAGEM, 'w', encoding='utf-8') as f:
-        json.dump(hospedagem, f, ensure_ascii=False, indent=2)
-
-def atualizar_hospedagem_cidade(cidade, dados_hospedagem):
-    hospedagem = carregar_hospedagem()
-    hospedagem[cidade] = dados_hospedagem
-    salvar_hospedagem(hospedagem)
-    return True
-
-# ============== FUNÇÕES DE CHECKLIST ==============
-
-def carregar_checklist():
-    if os.path.exists(ARQUIVO_CHECKLIST):
-        df = pd.read_csv(ARQUIVO_CHECKLIST)
-        return df
-    df = pd.DataFrame({
-        "item": ITENS_OBRIGATORIOS,
-        "concluido": [False] * len(ITENS_OBRIGATORIOS)
-    })
-    df.to_csv(ARQUIVO_CHECKLIST, index=False, encoding='utf-8')
-    return df
-
-def salvar_checklist(df):
-    df.to_csv(ARQUIVO_CHECKLIST, index=False, encoding='utf-8')
-
-def adicionar_item_checklist(item):
-    df = carregar_checklist()
-    novo_item = pd.DataFrame([{"item": item, "concluido": False}])
-    df = pd.concat([df, novo_item], ignore_index=True)
-    salvar_checklist(df)
-    return True
-
-def deletar_item_checklist(index):
-    df = carregar_checklist()
-    df = df.drop(index).reset_index(drop=True)
-    salvar_checklist(df)
-    return True
-
-def marcar_concluido(index, valor):
-    df = carregar_checklist()
-    df.loc[index, "concluido"] = valor
-    salvar_checklist(df)
-    return True
-
-# ============== FUNÇÕES DE CÁLCULO ==============
+def gastos_por_cidade(cidade):
+    return carregar_despesas()[carregar_despesas()["cidade"] == cidade]
 
 def calcular_gastos():
     df = carregar_despesas()
-    orcamento = obter_orcamento()
-    
     if df.empty:
-        return pd.DataFrame(columns=["categoria", "gasto", "orcado", "saldo", "pct"])
-    
-    gastos = df.groupby("categoria")["valor"].sum().to_dict()
-    
+        return pd.DataFrame(["Categoria","Gasto","Orçado","Saldo"]).columns.tolist()
+    gastos = df.groupby("categoria")["valor"].sum()
     resultado = []
-    for cat, orcado in orcamento["categorias"].items():
+    for cat, orçado in ORCAMENTO_CATEGORIAS.items():
         gasto = gastos.get(cat, 0)
-        saldo = orcado - gasto
-        pct = (gasto / orcado * 100) if orcado > 0 else 0
-        resultado.append({
-            "categoria": cat,
-            "gasto": gasto,
-            "orcado": orcado,
-            "saldo": saldo,
-            "pct": pct
-        })
-    
-    return pd.DataFrame(resultado)
+        resultado.append((cat, gasto, orçado, orçado - gasto))
+    return pd.DataFrame(resultado, columns=["Categoria","Gasto","Orçado","Saldo"])
 
-def calcular_totais():
-    df = carregar_despesas()
-    orcamento = obter_orcamento()
-    total_gasto = df["valor"].sum() if not df.empty else 0
-    total_ja_pago = sum(orcamento["itens_ja_pagos"].values())
-    gasto_total_viagem = total_gasto + total_ja_pago
-    saldo_final = orcamento["limite_total"] - gasto_total_viagem
-    
-    return {
-        "total_gasto": total_gasto,
-        "total_ja_pago": total_ja_pago,
-        "gasto_total_viagem": gasto_total_viagem,
-        "saldo_final": saldo_final,
-        "percentual": (gasto_total_viagem / orcamento["limite_total"] * 100)
-    }
+# ===FUNCOES DE TRANSMISSAO===========
+def carregar_hospedagem():
+    with open(ARQUIVO_HOSPEDAGEM,"r",encoding="utf-8") as f:
+        return json.load(f)
 
-def obter_gastos_por_cidade(cidade):
-    """Retorna gastos de uma cidade específica"""
-    df = carregar_despesas()
-    return df[df["cidade"] == cidade]
+def salvar_hospedagem(cidade, dados):
+    h = carregar_hospedagem()
+    h[cidade] = dados
+    with open(ARQUIVO_HOSPEDAGEM,"w",encoding="utf-8") as f:
+        json.dump(h, f, ensure_ascii=False)
 
-# ============== HEADER COM CONTADOR DE DIAS ==============
+# ===FUNCOES DE TRANSMISSAO 2===========
+def carregar_checklist():
+    return pd.DataFrame(columns=["item","concluido"])
+
+# ===HEADER COM CONTADOR===========
 st.title("✈️ VIAGEM EUROPA 2026")
-st.markdown("**Controle de Gastos
+st.markdown("**Controle de Gastos — Clébio & Esposa**")
+
+dias = dias_para_viagem()
+col1, col2 = st.columns([3, 1])
+with col1:
+    if dias > 0:
+        st.balloons()
+        st.markdown(f"## 📅 **Faltam {dias} dias para a Viagem!**\n**Início:** 30/out/2026 | **Duração:** 19 dias")
+    elif dias == 0:
+        st.markdown("## 🎉 **A viagem começa HOJE!** ✈️ Boa viagem!")
+    else:
+        st.markdown(f"## ✈️ **Você está viajando! Dia {-dias+1} de 19**")
+with col2:
+    if dias > 0:
+        st.metric("🔴 Dias restantes", dias)
+    else:
+        st.metric("VIAJANDO!", f"Dia {-dias+1}")
+
+st.markdown("---")
+
+# ===ABAS===========
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "📊 Painel", "➕ Adicionar Gasto", "✈️ Transportes",
+    "📈 Gráficos", "📋 Relatório", "✅ Preparação"
+])
+
+# ===TAB 1: PAINEL===========
+with tab1:
+    st.subheader("Resumo Geral")
+    totais = calcular_totais()
+    col1,col2,col3,col4 = st.columns(4)
+    with col1: st.metric("💰 Gasto Registrado", f"R$ {totais['total_gasto']:,.2f}")
+    with col2: st.metric("💳 Já Pago", f"R$ {totais['total_ja_pago']:,.2f}")
+    with col3: st.metric("🛫 Total", f"R$ {totais['gasto_total_viagem']:,.2f}")
+    with col4: st.metric(f"💵 Saldo", f"R$ {totais['saldo_final']:,.2f}")
+    
+    st.markdown("### Progresso do Orçamento")
+    pct = totais['percentual']
+    st.progress(min(pct/100, 1.0))
+    st.write(f"**{pct:.1f}%** do orçamento utilizado")
+
+# ===CIDADES===========
+st.markdown("---")
+st.markdown("### 🌍 Cidades do Roteiro")
+cols = st.columns(5)
+for idx, cidade in enumerate(CIDADES):
+    with cols[idx % 5]:
+        if st.button(f"📍 {cidade}", use_container_width=True):
+            st.session_state.cidade_sel = cidade
+
+if "cidade_sel" in st.session_state:
+    cidade = st.session_state.cidade_sel
+    st.markdown("---")
+    st.markdown(f"## 📍 Detalhes de {cidade}")
+    
+    tab_h, tab_t, tab_g, tab_c = st.tabs(["🏨 Hospedagem","✈️ Transportes","💰 Gastos","🌤️ Clima"])
+    
+    with tab_c:
+        st.subheader(f"Clima em {cidade}")
+        clima = buscar_clima(cidade)
+        if clima:
+            temp = clima.get("temperature_2m", "N/D")
+            code = clima.get("weather_code", 0)
+            vento = clima.get("wind_speed_10m", "N/D")
+            desc, dica = interpretar_clima(code)
+            col1,col2,col3 = st.columns(3)
+            with col1: st.metric("Temperatura", f"{temp}°C")
+            with col2: st.metric("Vento", f"{vento} km/h")
+            with col3: st.metric("Condição", desc)
+            st.info(f"💡 {dica}")
+            if temp != "N/D" and float(temp) < 15: st.warning("🧥 **Clima frio!** Leve casaco.")
+            else: st.success("👍 **Clima bom para passeios!**")
+        else:
+            st.warning("⚠️ Sem dados de clima. Tente novamente.")
