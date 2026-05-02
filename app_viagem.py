@@ -3,6 +3,7 @@
 """
 VIAGEM EUROPA 2026 — APP STREAMLIT AVANÇADO
 Versão com Editar/Deletar Gastos, Transportes Detalhados e Seção por Cidade
+Roteiro Atualizado: 30/out a 17/nov com cidades e paradas específicas
 """
 
 import streamlit as st
@@ -43,12 +44,36 @@ ORCAMENTO_PADRAO = {
     },
 }
 
-CIDADES_ROTEIRO = [
-    "Madrid", "Barcelona", "Bruxelas", "Paris", "Milão", 
-    "Suíça", "Veneza", "Florença", "Pisa", "Roma"
+# ============== ROTEIRO DETALHADO ==============
+ROTEIRO_VIAGEM = [
+    {"data": "30/out", "saida": "Fortaleza", "chegada": "Madrid", "tipo": "Transporte"},
+    {"data": "31/out", "saida": "Madrid", "chegada": "Madrid", "tipo": "Hospedagem"},
+    {"data": "01/nov", "saida": "Madrid", "chegada": "Barcelona", "tipo": "Transporte"},
+    {"data": "02/nov", "saida": "Barcelona", "chegada": "Barcelona", "tipo": "Hospedagem"},
+    {"data": "03/nov", "saida": "Barcelona", "chegada": "Bruxelas", "tipo": "Transporte"},
+    {"data": "04/nov", "saida": "Bruxelas", "chegada": "Paris", "tipo": "Transporte"},
+    {"data": "05/nov", "saida": "Marne-la-Vallée (Disney)", "chegada": "Marne-la-Vallée", "tipo": "Hospedagem"},
+    {"data": "06/nov", "saida": "Paris", "chegada": "Paris", "tipo": "Hospedagem"},
+    {"data": "07/nov", "saida": "Paris", "chegada": "Milão", "tipo": "Transporte"},
+    {"data": "08/nov", "saida": "Milão", "chegada": "Milão", "tipo": "Hospedagem"},
+    {"data": "09/nov", "saida": "Milão (Tirano)", "chegada": "Suíça (Poschiavo, St. Moritz)", "tipo": "Transporte"},
+    {"data": "10/nov", "saida": "Milão", "chegada": "Veneza", "tipo": "Transporte"},
+    {"data": "11/nov", "saida": "Milão", "chegada": "Florença", "tipo": "Transporte"},
+    {"data": "12/nov", "saida": "Florença", "chegada": "Pisa", "tipo": "Transporte"},
+    {"data": "13/nov", "saida": "Florença", "chegada": "Roma", "tipo": "Transporte"},
+    {"data": "14/nov", "saida": "Roma", "chegada": "Vaticano", "tipo": "Hospedagem"},
+    {"data": "15/nov", "saida": "Roma", "chegada": "Roma", "tipo": "Hospedagem"},
+    {"data": "16/nov", "saida": "Roma", "chegada": "Madrid", "tipo": "Transporte"},
+    {"data": "17/nov", "saida": "Madrid", "chegada": "Fortaleza", "tipo": "Transporte"},
 ]
 
-TIPO_TRANSPORTE = ["Avião", "Trem", "Metro", "Ônibus"]
+CIDADES_ROTEIRO = [
+    "Fortaleza", "Madrid", "Barcelona", "Bruxelas", "Paris", 
+    "Marne-la-Vallée", "Milão", "Tirano", "Suíça (Poschiavo, St. Moritz)", 
+    "Veneza", "Florença", "Pisa", "Roma", "Vaticano"
+]
+
+TIPO_TRANSPORTE = ["Avião", "Trem", "Metro", "Ônibus", "Bicicleta"]
 
 CATEGORIAS_GASTO = [
     "Alimentação",
@@ -179,7 +204,6 @@ def calcular_duracao(hora_saida, hora_chegada):
         saida = datetime.strptime(hora_saida, "%H:%M")
         chegada = datetime.strptime(hora_chegada, "%H:%M")
         
-        # Se chegada é antes de saída, assume dia seguinte
         if chegada < saida:
             chegada = chegada + timedelta(days=1)
         
@@ -294,6 +318,7 @@ def obter_gastos_por_cidade(cidade):
 # ============== HEADER ==============
 st.title("✈️ VIAGEM EUROPA 2026")
 st.markdown("**Controle de Gastos — Clébio & Esposa**")
+st.markdown("**30/out a 17/nov — 19 dias de viagem!**")
 st.markdown("---")
 
 # ============== ABAS PRINCIPAIS ==============
@@ -444,6 +469,11 @@ with tab1:
                             st.write(f"📅 {t.get('data')} | 🚀 {t.get('tipo')} | {t.get('companhia')}")
                             st.write(f"⏰ {t.get('saida')} → {t.get('chegada')} ({t.get('duracao')})")
                             st.write(f"📍 {t.get('local_saida')} → {t.get('local_chegada')}")
+                            
+                            if t.get('tipo') == 'Avião':
+                                st.warning("⚠️ **Chegue 2-3 horas antes do voo!**")
+                            elif t.get('tipo') in ['Trem', 'Metro']:
+                                st.info("ℹ️ **Chegue 15-30 minutos antes**")
                         
                         with col2:
                             if st.button("✏️ Editar", key=f"edit_transp_{idx}", use_container_width=True):
@@ -833,26 +863,56 @@ with st.sidebar:
     st.markdown("---")
     
     st.markdown("📅 **30/out a 17/nov/2026**")
-    st.markdown("**Duração:** 18 dias")
+    st.markdown("**Duração:** 19 dias")
+    st.markdown("**Início:** 30/out (Fortaleza → Madrid)")
     
     st.markdown("---")
-    st.markdown("### 🌍 Roteiro (10 Cidades)")
+    st.markdown("### 🌍 Roteiro Detalhado (14 Cidades)")
     
     cidades_detalhes = [
+        ("🇧🇷 Fortaleza", "Brasil"),
         ("🇪🇸 Madrid", "Espanha"),
         ("🏛️ Barcelona", "Espanha"),
         ("🇧🇪 Bruxelas", "Bélgica"),
         ("🗼 Paris", "França"),
+        ("🎡 Marne-la-Vallée", "França - Disney"),
         ("🇮🇹 Milão", "Itália"),
-        ("⛰️ Suíça", "Suíça"),
+        ("🚂 Tirano", "Itália"),
+        ("⛰️ Suíça (Poschiavo, St. Moritz)", "Suíça"),
         ("🚤 Veneza", "Itália"),
         ("🎨 Florença", "Itália"),
-        ("📐 Pisa", "Itália"),
+        ("🗼 Pisa", "Itália"),
         ("🏛️ Roma", "Itália"),
+        ("⛪ Vaticano", "Vaticano"),
     ]
     
     for cidade, pais in cidades_detalhes:
         st.markdown(f"**{cidade}** • {pais}")
+    
+    st.markdown("---")
+    st.markdown("### 📅 Cronograma da Viagem")
+    
+    st.markdown("""
+    - **30/out**: Fortaleza → Madrid
+    - **31/out**: Madrid
+    - **01/nov**: Madrid → Barcelona
+    - **02/nov**: Barcelona
+    - **03/nov**: Barcelona → Bruxelas
+    - **04/nov**: Bruxelas → Paris
+    - **05/nov**: Marne-la-Vallée (Disney)
+    - **06/nov**: Paris
+    - **07/nov**: Paris → Milão
+    - **08/nov**: Milão
+    - **09/nov**: Milão (Tirano) → Suíça (Poschiavo, St. Moritz)
+    - **10/nov**: Milão → Veneza
+    - **11/nov**: Milão → Florença
+    - **12/nov**: Florença → Pisa
+    - **13/nov**: Florença → Roma
+    - **14/nov**: Roma → Vaticano
+    - **15/nov**: Roma
+    - **16/nov**: Roma → Madrid
+    - **17/nov**: Madrid → Fortaleza
+    """)
     
     st.markdown("---")
     st.markdown("### 💰 Orçamento")
@@ -890,6 +950,23 @@ with st.sidebar:
     st.markdown("""
     **Estilo:** Econômico  
     **Acompanhantes:** Casal  
-    **Passagens:** ✅ Compradas  
+    **Início:** 30/out (Fortaleza → Madrid)  
+    **Término:** 17/nov (Madrid → Fortaleza)  
+    **Passagens Int:** ✅ Compradas  
     **Seguro:** ✅ Pago (R$ 350)  
+    """)
+    
+    st.markdown("---")
+    st.markdown("### 📂 Categorias")
+    categorias_atuais = carregar_categorias()
+    for cat, valor in categorias_atuais.items():
+        st.write(f"  • {cat}: R$ {valor:,.0f}")
+    
+    st.markdown("---")
+    st.markdown("### 💡 Dicas")
+    st.markdown("""
+    📱 Use o app no celular  
+    📊 Acompanhe em tempo real  
+    💾 Baixe dados regularmente  
+    ✅ Prepare com antecedência  
     """)
