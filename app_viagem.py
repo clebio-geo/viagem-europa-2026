@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 """
-VIAGEM EUROPA 2026 — APP STREAMLIT DE CONTROLE DE GASTOS
-Versão Online Corrigida para Streamlit Cloud
+VIAGEM EUROPA 2026 — APP STREAMLIT AVANÇADO
+Versão com Editar/Deletar Gastos, Transportes Detalhados e Seção por Cidade
 """
 
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import json
 
@@ -22,6 +22,8 @@ st.set_page_config(
 ARQUIVO_DESPESAS = "despesas_viagem.csv"
 ARQUIVO_CHECKLIST = "checklist_preparacao.csv"
 ARQUIVO_CATEGORIAS = "categorias.json"
+ARQUIVO_HOSPEDAGEM = "hospedagem.json"
+ARQUIVO_TRANSPORTES = "transportes.json"
 
 # ============== ORÇAMENTO ==============
 ORCAMENTO_PADRAO = {
@@ -41,9 +43,22 @@ ORCAMENTO_PADRAO = {
     },
 }
 
-CIDADES = [
+CIDADES_ROTEIRO = [
     "Madrid", "Barcelona", "Bruxelas", "Paris", "Milão", 
     "Suíça", "Veneza", "Florença", "Pisa", "Roma"
+]
+
+TIPO_TRANSPORTE = ["Avião", "Trem", "Metro", "Ônibus"]
+
+CATEGORIAS_GASTO = [
+    "Alimentação",
+    "Souvenirs",
+    "Transporte",
+    "Roupas e Acessórios",
+    "Passeios/Ingressos",
+    "Taxas",
+    "Hospedagem",
+    "Outros"
 ]
 
 ITENS_OBRIGATORIOS = [
@@ -69,7 +84,7 @@ ITENS_OBRIGATORIOS = [
     "☂️ Guarda-chuva",
 ]
 
-# ============== FUNÇÕES ==============
+# ============== FUNÇÕES DE CATEGORIAS ==============
 
 def carregar_categorias():
     if os.path.exists(ARQUIVO_CATEGORIAS):
@@ -96,6 +111,8 @@ def obter_orcamento():
     orcamento["categorias"] = carregar_categorias()
     return orcamento
 
+# ============== FUNÇÕES DE DESPESAS ==============
+
 def carregar_despesas():
     if os.path.exists(ARQUIVO_DESPESAS):
         df = pd.read_csv(ARQUIVO_DESPESAS)
@@ -115,6 +132,84 @@ def salvar_despesa(data, categoria, descricao, cidade, valor):
     df = pd.concat([df, nova_linha], ignore_index=True)
     df.to_csv(ARQUIVO_DESPESAS, index=False, encoding='utf-8')
     return True
+
+def deletar_despesa(index):
+    df = carregar_despesas()
+    df = df.drop(index).reset_index(drop=True)
+    df.to_csv(ARQUIVO_DESPESAS, index=False, encoding='utf-8')
+    return True
+
+def atualizar_despesa(index, data, categoria, descricao, cidade, valor):
+    df = carregar_despesas()
+    df.loc[index, "data"] = data
+    df.loc[index, "categoria"] = categoria
+    df.loc[index, "descricao"] = descricao
+    df.loc[index, "cidade"] = cidade
+    df.loc[index, "valor"] = valor
+    df.to_csv(ARQUIVO_DESPESAS, index=False, encoding='utf-8')
+    return True
+
+# ============== FUNÇÕES DE TRANSPORTES ==============
+
+def carregar_transportes():
+    if os.path.exists(ARQUIVO_TRANSPORTES):
+        with open(ARQUIVO_TRANSPORTES, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return []
+
+def salvar_transportes(transportes):
+    with open(ARQUIVO_TRANSPORTES, 'w', encoding='utf-8') as f:
+        json.dump(transportes, f, ensure_ascii=False, indent=2)
+
+def adicionar_transporte(transporte_dict):
+    transportes = carregar_transportes()
+    transportes.append(transporte_dict)
+    salvar_transportes(transportes)
+    return True
+
+def deletar_transporte(index):
+    transportes = carregar_transportes()
+    transportes.pop(index)
+    salvar_transportes(transportes)
+    return True
+
+def calcular_duracao(hora_saida, hora_chegada):
+    """Calcula a duração entre dois horários"""
+    try:
+        saida = datetime.strptime(hora_saida, "%H:%M")
+        chegada = datetime.strptime(hora_chegada, "%H:%M")
+        
+        # Se chegada é antes de saída, assume dia seguinte
+        if chegada < saida:
+            chegada = chegada + timedelta(days=1)
+        
+        duracao = chegada - saida
+        horas = duracao.seconds // 3600
+        minutos = (duracao.seconds % 3600) // 60
+        
+        return f"{horas}h {minutos}min"
+    except:
+        return "Inválido"
+
+# ============== FUNÇÕES DE HOSPEDAGEM ==============
+
+def carregar_hospedagem():
+    if os.path.exists(ARQUIVO_HOSPEDAGEM):
+        with open(ARQUIVO_HOSPEDAGEM, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    return {}
+
+def salvar_hospedagem(hospedagem):
+    with open(ARQUIVO_HOSPEDAGEM, 'w', encoding='utf-8') as f:
+        json.dump(hospedagem, f, ensure_ascii=False, indent=2)
+
+def atualizar_hospedagem_cidade(cidade, dados_hospedagem):
+    hospedagem = carregar_hospedagem()
+    hospedagem[cidade] = dados_hospedagem
+    salvar_hospedagem(hospedagem)
+    return True
+
+# ============== FUNÇÕES DE CHECKLIST ==============
 
 def carregar_checklist():
     if os.path.exists(ARQUIVO_CHECKLIST):
@@ -148,6 +243,8 @@ def marcar_concluido(index, valor):
     df.loc[index, "concluido"] = valor
     salvar_checklist(df)
     return True
+
+# ============== FUNÇÕES DE CÁLCULO ==============
 
 def calcular_gastos():
     df = carregar_despesas()
@@ -189,15 +286,21 @@ def calcular_totais():
         "percentual": (gasto_total_viagem / orcamento["limite_total"] * 100)
     }
 
+def obter_gastos_por_cidade(cidade):
+    """Retorna gastos de uma cidade específica"""
+    df = carregar_despesas()
+    return df[df["cidade"] == cidade]
+
 # ============== HEADER ==============
 st.title("✈️ VIAGEM EUROPA 2026")
 st.markdown("**Controle de Gastos — Clébio & Esposa**")
 st.markdown("---")
 
-# ============== ABAS ==============
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+# ============== ABAS PRINCIPAIS ==============
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "📊 Painel",
     "➕ Adicionar Gasto",
+    "✈️ Transportes",
     "📈 Gráficos",
     "📋 Relatório",
     "✅ Preparação"
@@ -240,6 +343,170 @@ with tab1:
             use_container_width=True,
             hide_index=True
         )
+    
+    # ============== SEÇÃO DE CIDADES ==============
+    st.markdown("---")
+    st.markdown("### 🌍 Cidades do Roteiro")
+    
+    cols = st.columns(5)
+    for idx, cidade in enumerate(CIDADES_ROTEIRO):
+        with cols[idx % 5]:
+            if st.button(f"📍 {cidade}", use_container_width=True, key=f"btn_cidade_{cidade}"):
+                st.session_state.cidade_selecionada = cidade
+    
+    # Se uma cidade foi selecionada, mostrar detalhes
+    if "cidade_selecionada" in st.session_state:
+        cidade_selecionada = st.session_state.cidade_selecionada
+        
+        st.markdown(f"---")
+        st.markdown(f"## 📍 Detalhes de {cidade_selecionada}")
+        
+        # Abas da cidade
+        tab_cid_1, tab_cid_2, tab_cid_3, tab_cid_4 = st.tabs([
+            "🏨 Hospedagem",
+            "✈️ Transportes",
+            "💰 Gastos",
+            "🗺️ Roteiro"
+        ])
+        
+        # ============== ABA: HOSPEDAGEM ==============
+        with tab_cid_1:
+            st.subheader(f"Hospedagem em {cidade_selecionada}")
+            
+            hospedagem = carregar_hospedagem()
+            dados_atuais = hospedagem.get(cidade_selecionada, {})
+            
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                nome_hotel = st.text_input(
+                    "Nome da Hospedagem:",
+                    value=dados_atuais.get("nome", ""),
+                    key=f"hotel_nome_{cidade_selecionada}"
+                )
+                endereco = st.text_input(
+                    "Endereço:",
+                    value=dados_atuais.get("endereco", ""),
+                    key=f"hotel_endereco_{cidade_selecionada}"
+                )
+            
+            with col2:
+                checkin = st.time_input(
+                    "Horário Check-in:",
+                    value=datetime.strptime(dados_atuais.get("checkin", "15:00"), "%H:%M").time(),
+                    key=f"hotel_checkin_{cidade_selecionada}"
+                )
+                checkout = st.time_input(
+                    "Horário Check-out:",
+                    value=datetime.strptime(dados_atuais.get("checkout", "11:00"), "%H:%M").time(),
+                    key=f"hotel_checkout_{cidade_selecionada}"
+                )
+            
+            telefone = st.text_input(
+                "Telefone de Contato:",
+                value=dados_atuais.get("telefone", ""),
+                key=f"hotel_tel_{cidade_selecionada}"
+            )
+            
+            confirmacao = st.text_input(
+                "Número de Confirmação:",
+                value=dados_atuais.get("confirmacao", ""),
+                key=f"hotel_conf_{cidade_selecionada}"
+            )
+            
+            if st.button(f"💾 Salvar Hospedagem em {cidade_selecionada}", use_container_width=True):
+                dados_hotel = {
+                    "nome": nome_hotel,
+                    "endereco": endereco,
+                    "checkin": checkin.strftime("%H:%M"),
+                    "checkout": checkout.strftime("%H:%M"),
+                    "telefone": telefone,
+                    "confirmacao": confirmacao
+                }
+                atualizar_hospedagem_cidade(cidade_selecionada, dados_hotel)
+                st.success(f"✅ Hospedagem salva em {cidade_selecionada}!")
+        
+        # ============== ABA: TRANSPORTES DA CIDADE ==============
+        with tab_cid_2:
+            st.subheader(f"Transportes em/para {cidade_selecionada}")
+            
+            transportes = carregar_transportes()
+            transportes_cidade = [t for t in transportes if t.get("origem") == cidade_selecionada or t.get("destino") == cidade_selecionada]
+            
+            if transportes_cidade:
+                st.markdown("**Transportes Cadastrados:**")
+                for idx, t in enumerate(transportes_cidade):
+                    with st.container():
+                        col1, col2, col3 = st.columns([3, 1, 1])
+                        
+                        with col1:
+                            st.write(f"**{t.get('origem')} → {t.get('destino')}**")
+                            st.write(f"📅 {t.get('data')} | 🚀 {t.get('tipo')} | {t.get('companhia')}")
+                            st.write(f"⏰ {t.get('saida')} → {t.get('chegada')} ({t.get('duracao')})")
+                            st.write(f"📍 {t.get('local_saida')} → {t.get('local_chegada')}")
+                        
+                        with col2:
+                            if st.button("✏️ Editar", key=f"edit_transp_{idx}", use_container_width=True):
+                                st.session_state[f"editar_transporte_{idx}"] = True
+                        
+                        with col3:
+                            if st.button("🗑️ Deletar", key=f"del_transp_{idx}", use_container_width=True):
+                                deletar_transporte(idx)
+                                st.success("Transporte deletado!")
+                                st.rerun()
+                        
+                        st.markdown("---")
+            else:
+                st.info(f"Nenhum transporte cadastrado para {cidade_selecionada}")
+        
+        # ============== ABA: GASTOS DA CIDADE ==============
+        with tab_cid_3:
+            st.subheader(f"Gastos em {cidade_selecionada}")
+            
+            gastos_cidade = obter_gastos_por_cidade(cidade_selecionada)
+            
+            if not gastos_cidade.empty:
+                # Resumo por categoria
+                gastos_por_cat = gastos_cidade.groupby("categoria")["valor"].sum().sort_values(ascending=False)
+                
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.markdown("**Gastos por Categoria:**")
+                    for cat, val in gastos_por_cat.items():
+                        st.write(f"  • {cat}: R$ {val:,.2f}")
+                
+                with col2:
+                    st.metric("Total em " + cidade_selecionada, f"R$ {gastos_cidade['valor'].sum():,.2f}")
+                
+                st.markdown("**Todos os Gastos:**")
+                df_exibir = gastos_cidade.copy()
+                df_exibir["data"] = df_exibir["data"].dt.strftime("%d/%m/%Y")
+                df_exibir.columns = ["Data", "Categoria", "Descrição", "Cidade", "Valor"]
+                
+                # Adicionar coluna de ações
+                for idx, row in gastos_cidade.iterrows():
+                    col1, col2, col3, col4 = st.columns([2, 2, 1, 1])
+                    
+                    with col1:
+                        st.write(row["data"].strftime("%d/%m/%Y"))
+                    with col2:
+                        st.write(row["descricao"])
+                    with col3:
+                        if st.button("✏️", key=f"edit_gasto_{idx}", help="Editar"):
+                            st.session_state[f"editar_gasto_{idx}"] = True
+                    with col4:
+                        if st.button("🗑️", key=f"del_gasto_{idx}", help="Deletar"):
+                            deletar_despesa(idx)
+                            st.success("Gasto deletado!")
+                            st.rerun()
+            else:
+                st.info(f"Nenhum gasto registrado em {cidade_selecionada}")
+        
+        # ============== ABA: ROTEIRO ==============
+        with tab_cid_4:
+            st.subheader(f"Roteiro em {cidade_selecionada}")
+            st.info("📌 Seção de Roteiro será preenchida posteriormente com atrações, horários e dicas!")
 
 # ============== TAB 2: ADICIONAR GASTO ==============
 with tab2:
@@ -289,7 +556,7 @@ with tab2:
             categoria = st.selectbox("📂 Categoria", categorias, key="select_cat")
         
         with col2:
-            cidade = st.selectbox("🏙️ Cidade", CIDADES)
+            cidade = st.selectbox("🏙️ Cidade", CIDADES_ROTEIRO)
             valor = st.number_input("💵 Valor (R$)", min_value=0.0, step=0.01)
         
         descricao = st.text_input("📝 Descrição", placeholder="Ex: Café, Hotel, Translado, etc")
@@ -303,11 +570,116 @@ with tab2:
                 st.error("⚠️ Valor deve ser maior que 0!")
             else:
                 salvar_despesa(data, categoria, descricao, cidade, valor)
-                st.success(f"✅ Gasto registrado: {descricao} — R$ {valor:.2f}")
+                st.success(f"✅ Gasto registrado: {descricao} — R$ {valor:.2f} em {cidade}")
                 st.rerun()
 
-# ============== TAB 3: GRÁFICOS ==============
+# ============== TAB 3: TRANSPORTES ==============
 with tab3:
+    st.subheader("✈️ Transportes Internos")
+    
+    st.markdown("### ➕ Adicionar Novo Transporte")
+    
+    with st.form("form_transporte", clear_on_submit=True):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            data_transp = st.date_input("📅 Data", value=datetime.now(), key="transp_data")
+            origem = st.selectbox("🛫 Origem", CIDADES_ROTEIRO, key="transp_origem")
+        
+        with col2:
+            destino = st.selectbox("🛬 Destino", CIDADES_ROTEIRO, key="transp_destino")
+            tipo_transp = st.selectbox("🚀 Tipo de Transporte", TIPO_TRANSPORTE, key="transp_tipo")
+        
+        col1, col2, col3 = st.columns(3)
+        
+        with col1:
+            hora_saida = st.time_input("⏰ Hora Saída", key="transp_saida")
+        
+        with col2:
+            hora_chegada = st.time_input("⏰ Hora Chegada", key="transp_chegada")
+        
+        with col3:
+            duracao = calcular_duracao(hora_saida.strftime("%H:%M"), hora_chegada.strftime("%H:%M"))
+            st.write(f"**Duração:** {duracao}")
+        
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            companhia = st.text_input("🏢 Companhia", placeholder="Ex: TAP, Lufthansa, Renfe, etc", key="transp_comp")
+            local_saida = st.text_input("📍 Aeroporto/Estação Saída", placeholder="Ex: MAD - Barajas, Paris CDG", key="transp_saida_loc")
+        
+        with col2:
+            numero_voo = st.text_input("🎫 Número Voo/Trem", placeholder="Ex: TP100, ICE 900", key="transp_num")
+            local_chegada = st.text_input("📍 Aeroporto/Estação Chegada", placeholder="Ex: BCN - El Prat, Paris Gare du Nord", key="transp_chegada_loc")
+        
+        # Aviso de horário
+        if tipo_transp == "Avião":
+            st.warning("⚠️ **Lembrete:** Chegar 2-3 horas antes do voo!")
+        elif tipo_transp == "Trem":
+            st.info("ℹ️ **Lembrete:** Chegar 15-30 minutos antes!")
+        elif tipo_transp == "Metro":
+            st.info("ℹ️ **Lembrete:** Chegar 10 minutos antes!")
+        
+        submitted = st.form_submit_button("✅ Adicionar Transporte", use_container_width=True)
+        
+        if submitted:
+            if not companhia or not local_saida or not local_chegada:
+                st.error("⚠️ Preencha todos os campos!")
+            else:
+                transporte_dict = {
+                    "data": data_transp.strftime("%d/%m/%Y"),
+                    "origem": origem,
+                    "destino": destino,
+                    "tipo": tipo_transp,
+                    "saida": hora_saida.strftime("%H:%M"),
+                    "chegada": hora_chegada.strftime("%H:%M"),
+                    "duracao": duracao,
+                    "companhia": companhia,
+                    "numero": numero_voo,
+                    "local_saida": local_saida,
+                    "local_chegada": local_chegada
+                }
+                adicionar_transporte(transporte_dict)
+                st.success(f"✅ Transporte cadastrado: {origem} → {destino}")
+                st.rerun()
+    
+    st.markdown("---")
+    st.markdown("### 📋 Transportes Cadastrados")
+    
+    transportes = carregar_transportes()
+    
+    if transportes:
+        for idx, t in enumerate(transportes):
+            with st.container():
+                col1, col2, col3, col4 = st.columns([2, 1, 1, 1])
+                
+                with col1:
+                    st.write(f"**{t.get('origem')} → {t.get('destino')}**")
+                    st.write(f"📅 {t.get('data')} | 🚀 {t.get('tipo')} | {t.get('companhia')}")
+                    st.write(f"⏰ {t.get('saida')} → {t.get('chegada')} ({t.get('duracao')})")
+                    st.write(f"📍 {t.get('local_saida')} → {t.get('local_chegada')}")
+                    st.write(f"🎫 {t.get('numero')}")
+                
+                with col2:
+                    if st.button("ℹ️", key=f"info_transp_{idx}", help="Informações"):
+                        st.info(f"Companhia: {t.get('companhia')}\nVoo/Trem: {t.get('numero')}")
+                
+                with col3:
+                    if st.button("✏️", key=f"edit_transp_list_{idx}", help="Editar"):
+                        st.session_state[f"editar_transporte_list_{idx}"] = True
+                
+                with col4:
+                    if st.button("🗑️", key=f"del_transp_list_{idx}", help="Deletar"):
+                        deletar_transporte(idx)
+                        st.success("Transporte deletado!")
+                        st.rerun()
+                
+                st.markdown("---")
+    else:
+        st.info("Nenhum transporte cadastrado ainda.")
+
+# ============== TAB 4: GRÁFICOS ==============
+with tab4:
     st.subheader("Análise Visual")
     
     df = carregar_despesas()
@@ -330,8 +702,8 @@ with tab3:
     else:
         st.info("📊 Adicione gastos para ver os gráficos!")
 
-# ============== TAB 4: RELATÓRIO ==============
-with tab4:
+# ============== TAB 5: RELATÓRIO ==============
+with tab5:
     st.subheader("Relatório Completo")
     
     df = carregar_despesas()
@@ -341,8 +713,33 @@ with tab4:
         df_exibir = df.copy()
         df_exibir["data"] = df_exibir["data"].dt.strftime("%d/%m/%Y")
         df_exibir.columns = ["Data", "Categoria", "Descrição", "Cidade", "Valor"]
-        st.dataframe(df_exibir, use_container_width=True, hide_index=True)
         
+        # Mostrar com opções de editar/deletar
+        for idx, row in df.iterrows():
+            col1, col2, col3, col4, col5 = st.columns([1, 1.5, 1, 1, 1])
+            
+            with col1:
+                st.write(row["data"].strftime("%d/%m/%Y"))
+            with col2:
+                st.write(row["descricao"])
+            with col3:
+                st.write(row["categoria"])
+            with col4:
+                st.write(f"R$ {row['valor']:.2f}")
+            with col5:
+                col_edit, col_del = st.columns(2)
+                with col_edit:
+                    if st.button("✏️", key=f"edit_rel_{idx}", help="Editar"):
+                        st.session_state[f"editar_gasto_rel_{idx}"] = True
+                with col_del:
+                    if st.button("🗑️", key=f"del_rel_{idx}", help="Deletar"):
+                        deletar_despesa(idx)
+                        st.success("Gasto deletado!")
+                        st.rerun()
+        
+        st.markdown("---")
+        
+        # Download CSV
         csv = df.to_csv(index=False)
         st.download_button(
             label="📥 Baixar Dados (CSV)",
@@ -353,8 +750,8 @@ with tab4:
     else:
         st.info("Nenhuma despesa registrada ainda.")
 
-# ============== TAB 5: PREPARAÇÃO ==============
-with tab5:
+# ============== TAB 6: PREPARAÇÃO ==============
+with tab6:
     st.subheader("✅ Checklist de Preparação")
     st.markdown("Marque os itens obrigatórios conforme prepare para a viagem!")
     st.markdown("---")
@@ -495,19 +892,4 @@ with st.sidebar:
     **Acompanhantes:** Casal  
     **Passagens:** ✅ Compradas  
     **Seguro:** ✅ Pago (R$ 350)  
-    """)
-    
-    st.markdown("---")
-    st.markdown("### 📂 Categorias")
-    categorias_atuais = carregar_categorias()
-    for cat, valor in categorias_atuais.items():
-        st.write(f"  • {cat}: R$ {valor:,.0f}")
-    
-    st.markdown("---")
-    st.markdown("### 💡 Dicas")
-    st.markdown("""
-    📱 Use o app no celular  
-    📊 Acompanhe em tempo real  
-    💾 Baixe dados regularmente  
-    ✅ Prepare com antecedência  
     """)
